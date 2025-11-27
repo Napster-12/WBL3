@@ -26,7 +26,7 @@ from flask import make_response
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = '1312'
+app.config['SECRET_KEY'] = 'replace_this_with_a_strong_secret_key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'moepi.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -37,15 +37,14 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Flask-Mail configuration for cPanel email
 app.config['MAIL_SERVER'] = 'mail.tekete.co.za'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USE_SSL'] = False
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
 
-app.config['MAIL_USERNAME'] = os.getenv('check-in@tekete.co.za')
-app.config['MAIL_PASSWORD'] = os.getenv('Publishing@2025')
+app.config['MAIL_USERNAME'] = 'check-in@tekete.co.za'   # your email
+app.config['MAIL_PASSWORD'] = 'Publishing@2025'      # email password
 
 app.config['MAIL_DEFAULT_SENDER'] = ('Check-In System', 'check-in@tekete.co.za')
-
 
 mail = Mail(app)
 
@@ -105,7 +104,7 @@ class User(UserMixin, db.Model):
             self.two_factor_secret = pyotp.random_base32()
         return pyotp.totp.TOTP(self.two_factor_secret).provisioning_uri(
             name=self.email,
-            issuer_name="Check-In System"
+            issuer_name="Moepi Check-In System"
         )
 
     def verify_totp(self, token):
@@ -186,7 +185,25 @@ def notify_mentors(logbook_type):
 
 
 
-
+# -------------------- Initialize DB & Default Admin --------------------
+with app.app_context():
+    db.create_all()
+    admin_email = "support@tekete.co.za"
+    existing_admin = User.query.filter_by(email=admin_email).first()
+    if not existing_admin:
+        admin = User(
+            fullname="System Administrator",
+            email=admin_email,
+            password_hash=generate_password_hash("Admin@123"),
+            is_admin=True,
+            role="Administrator",
+            organization="Moepi Publishing"
+        )
+        db.session.add(admin)
+        db.session.commit()
+        print("✅ Default admin created successfully.")
+    else:
+        print("ℹ️ Admin already exists.")
 
 
 @login_manager.user_loader
