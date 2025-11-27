@@ -26,7 +26,7 @@ from flask import make_response
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'replace_this_with_a_strong_secret_key'
+app.config['SECRET_KEY'] = '1312'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'moepi.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -35,15 +35,19 @@ app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'uploads', 'times
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Flask-Mail configuration
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USE_SSL'] = False
-app.config['MAIL_USERNAME'] = 'codnellsmall@gmail.com'
-app.config['MAIL_PASSWORD'] = 'mrmxmmomvhvfqoee'
-app.config['MAIL_DEFAULT_SENDER'] = 'codnellsmall@gmail.com'
+# Flask-Mail configuration for cPanel email
+app.config['MAIL_SERVER'] = 'mail.tekete.co.za'
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
+
+app.config['MAIL_USERNAME'] = 'check-in@tekete.co.za'   # your email
+app.config['MAIL_PASSWORD'] = 'Publishing@2025'      # email password
+
+app.config['MAIL_DEFAULT_SENDER'] = ('Check-In System', 'check-in@tekete.co.za')
+
 mail = Mail(app)
+
 
 # Token serializer
 s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
@@ -100,7 +104,7 @@ class User(UserMixin, db.Model):
             self.two_factor_secret = pyotp.random_base32()
         return pyotp.totp.TOTP(self.two_factor_secret).provisioning_uri(
             name=self.email,
-            issuer_name="Moepi Check-In System"
+            issuer_name="Check-In System"
         )
 
     def verify_totp(self, token):
@@ -139,6 +143,8 @@ class Assignment(db.Model):
 
     user = db.relationship('User', backref='assignments')
     
+from datetime import datetime
+
 def notify_mentors(logbook_type):
     mentors = User.query.filter_by(role="Mentor").all()
 
@@ -146,13 +152,30 @@ def notify_mentors(logbook_type):
         try:
             msg = Message(
                 subject=f"New {logbook_type.upper()} Uploaded by {current_user.fullname}",
-                recipients=[mentor.email]
-            )
-            msg.body = (
-                f"Hello {mentor.fullname},\n\n"
-                f"Student {current_user.fullname} has uploaded their {logbook_type.upper()}.\n"
-                "Please log into the Moepi Attendance System to review it.\n\n"
-                "Regards,\nMoepi Attendance System"
+                recipients=[mentor.email],
+                html=f"""
+                <div style="font-family: 'Poppins', sans-serif; background:#f8f9fa; padding:40px; text-align:center;">
+                    <div style="max-width:600px; margin:0 auto; background:#fff; border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.1); border-top:6px solid #D6E03F; padding:40px;">
+                        
+                        <h2 style="color:#1E2A38; font-weight:700;">New {logbook_type.upper()} Uploaded</h2>
+                        <p style="font-size:1.05rem; color:#555; margin-bottom:30px;">
+                            Hello {mentor.fullname},<br><br>
+                            Student <strong>{current_user.fullname}</strong> has uploaded their <strong>{logbook_type.upper()}</strong>.<br>
+                            Please log into the Moepi Attendance System to review it.
+                        </p>
+                        <a href="https://wbl3.onrender.com/login" 
+                           style="display:inline-block; padding:12px 36px; border-radius:30px; font-weight:600; font-size:1rem; text-decoration:none; background-color:#D6E03F; color:#1E2A38; margin-top:20px;">
+                           Log in to Review
+                        </a>
+                        <p style="margin-top:30px; font-size:0.9rem; color:#888;">
+                            Regards,<br>Moepi Attendance System
+                        </p>
+                    </div>
+                    <footer style="margin-top:20px; font-size:0.9rem; color:#888;">
+                        © {datetime.now().year} Moepi Publishing — All Rights Reserved
+                    </footer>
+                </div>
+                """
             )
             mail.send(msg)
         except Exception as e:
@@ -161,25 +184,8 @@ def notify_mentors(logbook_type):
 
 
 
-# -------------------- Initialize DB & Default Admin --------------------
-with app.app_context():
-    db.create_all()
-    admin_email = "support@tekete.co.za"
-    existing_admin = User.query.filter_by(email=admin_email).first()
-    if not existing_admin:
-        admin = User(
-            fullname="System Administrator",
-            email=admin_email,
-            password_hash=generate_password_hash("Admin@123"),
-            is_admin=True,
-            role="Administrator",
-            organization="Moepi Publishing"
-        )
-        db.session.add(admin)
-        db.session.commit()
-        print("✅ Default admin created successfully.")
-    else:
-        print("ℹ️ Admin already exists.")
+
+
 
 
 @login_manager.user_loader
@@ -221,7 +227,7 @@ def register():
             return redirect(url_for('register'))
 
         # Only allow certain domains
-        allowed_domains = ('@tekete.co.za', '@vut.ac.za', '@micseta.org.za','@edu.vut.ac.za','@tut.ac.za','@tut.ac.za')
+        allowed_domains = ('@tekete.co.za', '@vut.ac.za', '@micseta.org.za', '@edu.vut.ac.za', '@tut.ac.za', '@moepipublishing.co.za', '@tut4life.ac.za','@mylife.unisa.ac.za', '@tuks.ac.za','@myturf.ul.ac.za', '@student.uj.ac.za', '@students.wits.ac.za', '@sun.ac.za', '@students.nwu.ac.za','@stu.ukzn.ac.za', '@campus.ru.ac.za', '@ufs4life.ac.za', '@univen.ac.za', '@spu.ac.za', '@wsu.ac.za', '@dut4life.ac.za', '@mycput.ac.za', '@smu.ac.za', '@ufh.ac.za', '@mut.ac.za', '@ul.ac.za', '@cput.ac.za','@emcol.co.za', '@ikhala.edu.za', '@ingwecollege.edu.za', '@kinghintsacollege.edu.za', '@ksdcollege.edu.za', '@flaviusmareka.net', '@goldfieldstvet.edu.za', '@malutitvet.co.za','@motheotvet.co.za', '@cjc.edu.za', '@eec.edu.za', '@ewc.edu.za', '@sedcol.co.za','@swgc.co.za', '@tnc.edu.za', '@tsc.edu.za', '@westcol.co.za', '@coastalkzn.co.za','@elangeni.edu.za', '@esayidifet.co.za', '@majuba.edu.za', '@mnambithicollege.co.za','@mthashanacollege.co.za', '@thekwinicollege.co.za', '@capricorncollege.edu.za', '@leptvetcol.edu.za', '@letabacollege.ac.za', '@mopanicollege.edu.za', '@sekhukhunetvet.edu.za', '@vhembecollege.edu.za', '@waterbergcollege.co.za', '@ehlanzenicollege.co.za', '@gscollege.edu.za', '@ntc.edu.za', '@ncrtvet.com', '@ncutvet.edu.za', '@orbittvet.co.za', '@taletso.edu.za', '@vuselelacollege.co.za', '@bolandcollege.com', '@cct.edu.za', '@falsebaycollege.co.za', '@northlink.co.za', '@sccollege.co.za', '@westcoastcollege.co.za')
         if not email.endswith(allowed_domains):
             flash('Only organization emails allowed.', 'danger')
             return redirect(url_for('register'))
@@ -319,7 +325,7 @@ def login():
         email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
 
-        allowed_domains = ('@tekete.co.za', '@vut.ac.za', '@micseta.org.za', '@edu.vut.ac.za', '@tut.ac.za')
+        allowed_domains = ('@tekete.co.za', '@vut.ac.za', '@micseta.org.za', '@edu.vut.ac.za', '@tut.ac.za', '@moepipublishing.co.za', '@tut4life.ac.za','@mylife.unisa.ac.za', '@tuks.ac.za','@myturf.ul.ac.za', '@student.uj.ac.za', '@students.wits.ac.za', '@sun.ac.za', '@students.nwu.ac.za','@stu.ukzn.ac.za', '@campus.ru.ac.za', '@ufs4life.ac.za', '@univen.ac.za', '@spu.ac.za', '@wsu.ac.za', '@dut4life.ac.za', '@mycput.ac.za', '@smu.ac.za', '@ufh.ac.za', '@mut.ac.za', '@ul.ac.za', '@cput.ac.za','@emcol.co.za', '@ikhala.edu.za', '@ingwecollege.edu.za', '@kinghintsacollege.edu.za', '@ksdcollege.edu.za', '@flaviusmareka.net', '@goldfieldstvet.edu.za', '@malutitvet.co.za','@motheotvet.co.za', '@cjc.edu.za', '@eec.edu.za', '@ewc.edu.za', '@sedcol.co.za','@swgc.co.za', '@tnc.edu.za', '@tsc.edu.za', '@westcol.co.za', '@coastalkzn.co.za','@elangeni.edu.za', '@esayidifet.co.za', '@majuba.edu.za', '@mnambithicollege.co.za','@mthashanacollege.co.za', '@thekwinicollege.co.za', '@capricorncollege.edu.za', '@leptvetcol.edu.za', '@letabacollege.ac.za', '@mopanicollege.edu.za', '@sekhukhunetvet.edu.za', '@vhembecollege.edu.za', '@waterbergcollege.co.za', '@ehlanzenicollege.co.za', '@gscollege.edu.za', '@ntc.edu.za', '@ncrtvet.com', '@ncutvet.edu.za', '@orbittvet.co.za', '@taletso.edu.za', '@vuselelacollege.co.za', '@bolandcollege.com', '@cct.edu.za', '@falsebaycollege.co.za', '@northlink.co.za', '@sccollege.co.za', '@westcoastcollege.co.za')
         if not email.endswith(allowed_domains):
             flash('Only organization emails are allowed.', 'danger')
             return redirect(url_for('login'))
