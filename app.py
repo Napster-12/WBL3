@@ -37,14 +37,15 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Flask-Mail configuration for cPanel email
 app.config['MAIL_SERVER'] = 'mail.tekete.co.za'
-app.config['MAIL_PORT'] = 465
-app.config['MAIL_USE_TLS'] = False
-app.config['MAIL_USE_SSL'] = True
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USE_SSL'] = False
 
-app.config['MAIL_USERNAME'] = 'check-in@tekete.co.za'   # your email
-app.config['MAIL_PASSWORD'] = 'Publishing@2025'      # email password
+app.config['MAIL_USERNAME'] = os.getenv('check-in@tekete.co.za')
+app.config['MAIL_PASSWORD'] = os.getenv('Publishing@2025')
 
 app.config['MAIL_DEFAULT_SENDER'] = ('Check-In System', 'check-in@tekete.co.za')
+
 
 mail = Mail(app)
 
