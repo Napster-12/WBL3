@@ -1,5 +1,4 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, session
-from datetime import datetime, timedelta
 from sqlalchemy import Column, Integer, String, DateTime
 from flask import session
 from flask_sqlalchemy import SQLAlchemy
@@ -8,6 +7,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
+from datetime import datetime, timedelta
+import pytz
 import os
 import pyotp
 import qrcode
@@ -41,8 +42,8 @@ app.config['MAIL_PORT'] = 465
 app.config['MAIL_USE_TLS'] = False
 app.config['MAIL_USE_SSL'] = True
 
-app.config['MAIL_USERNAME'] = 'check-in@tekete.co.za'   # your email
-app.config['MAIL_PASSWORD'] = 'Publishing@2025'      # email password
+app.config['MAIL_USERNAME'] = 'check-in@tekete.co.za'   
+app.config['MAIL_PASSWORD'] = 'Publishing@2025'      
 
 app.config['MAIL_DEFAULT_SENDER'] = ('Check-In System', 'check-in@tekete.co.za')
 
@@ -181,31 +182,6 @@ def notify_mentors(logbook_type):
         except Exception as e:
             print("❌ Email send error:", e)
 
-
-
-
-
-# -------------------- Initialize DB & Default Admin --------------------
-with app.app_context():
-    db.create_all()
-    admin_email = "support@tekete.co.za"
-    existing_admin = User.query.filter_by(email=admin_email).first()
-    if not existing_admin:
-        admin = User(
-            fullname="System Administrator",
-            email=admin_email,
-            password_hash=generate_password_hash("Admin@123"),
-            is_admin=True,
-            role="Administrator",
-            organization="Moepi Publishing"
-        )
-        db.session.add(admin)
-        db.session.commit()
-        print("✅ Default admin created successfully.")
-    else:
-        print("ℹ️ Admin already exists.")
-
-
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -213,7 +189,7 @@ def load_user(user_id):
 
 # -------------------- Constants --------------------
 CHECKIN_SLOTS = ["11:00", "13:00", "16:00"]
-ALLOWED_EXTENSIONS = {'pdf', 'xlsx', 'csv', 'jpg', 'jpeg', 'png'}
+ALLOWED_EXTENSIONS = {'pdf', 'xlsx', 'csv'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -245,7 +221,7 @@ def register():
             return redirect(url_for('register'))
 
         # Only allow certain domains
-        allowed_domains = ('@tekete.co.za', '@vut.ac.za', '@micseta.org.za', '@edu.vut.ac.za', '@tut.ac.za', '@moepipublishing.co.za', '@tut4life.ac.za','@mylife.unisa.ac.za', '@tuks.ac.za','@myturf.ul.ac.za', '@student.uj.ac.za', '@students.wits.ac.za', '@sun.ac.za', '@students.nwu.ac.za','@stu.ukzn.ac.za', '@campus.ru.ac.za', '@ufs4life.ac.za', '@univen.ac.za', '@spu.ac.za', '@wsu.ac.za', '@dut4life.ac.za', '@mycput.ac.za', '@smu.ac.za', '@ufh.ac.za', '@mut.ac.za', '@ul.ac.za', '@cput.ac.za','@emcol.co.za', '@ikhala.edu.za', '@ingwecollege.edu.za', '@kinghintsacollege.edu.za', '@ksdcollege.edu.za', '@flaviusmareka.net', '@goldfieldstvet.edu.za', '@malutitvet.co.za','@motheotvet.co.za', '@cjc.edu.za', '@eec.edu.za', '@ewc.edu.za', '@sedcol.co.za','@swgc.co.za', '@tnc.edu.za', '@tsc.edu.za', '@westcol.co.za', '@coastalkzn.co.za','@elangeni.edu.za', '@esayidifet.co.za', '@majuba.edu.za', '@mnambithicollege.co.za','@mthashanacollege.co.za', '@thekwinicollege.co.za', '@capricorncollege.edu.za', '@leptvetcol.edu.za', '@letabacollege.ac.za', '@mopanicollege.edu.za', '@sekhukhunetvet.edu.za', '@vhembecollege.edu.za', '@waterbergcollege.co.za', '@ehlanzenicollege.co.za', '@gscollege.edu.za', '@ntc.edu.za', '@ncrtvet.com', '@ncutvet.edu.za', '@orbittvet.co.za', '@taletso.edu.za', '@vuselelacollege.co.za', '@bolandcollege.com', '@cct.edu.za', '@falsebaycollege.co.za', '@northlink.co.za', '@sccollege.co.za', '@westcoastcollege.co.za')
+        allowed_domains = ('@tekete.co.za', '@vut.ac.za', '@micseta.org.za', '@edu.vut.ac.za', '@tut.ac.za', '@moepipublishing.co.za', '@tut4life.ac.za','@mylife.unisa.ac.za', '@tuks.ac.za','@myturf.ul.ac.za', '@student.uj.ac.za', '@students.wits.ac.za', '@sun.ac.za', '@students.nwu.ac.za','@stu.ukzn.ac.za', '@campus.ru.ac.za', '@ufs4life.ac.za', '@univen.ac.za', '@spu.ac.za', '@wsu.ac.za', '@dut4life.ac.za', '@mycput.ac.za', '@smu.ac.za', '@ufh.ac.za', '@mut.ac.za', '@ul.ac.za', '@cput.ac.za')
         if not email.endswith(allowed_domains):
             flash('Only organization emails allowed.', 'danger')
             return redirect(url_for('register'))
@@ -554,29 +530,51 @@ def dashboard():
 @app.route('/checkin/<slot>', methods=['POST'])
 @login_required
 def checkin(slot):
+    # South African timezone
+    sa_tz = pytz.timezone("Africa/Johannesburg")
+    now = datetime.now(sa_tz)  # Always use S.A. time
+
     if slot not in CHECKIN_SLOTS:
         flash('Invalid check-in slot.', 'danger')
         return redirect(url_for('dashboard'))
 
     comment = request.form.get('comment', '').strip()
-    now = datetime.now()
+
+    # Convert slot time to a datetime in SA timezone
     slot_time = datetime.strptime(slot, "%H:%M").time()
-    slot_datetime = datetime.combine(now.date(), slot_time)
+    slot_datetime = sa_tz.localize(datetime.combine(now.date(), slot_time))
+
+    # Allowed window: exact time until +10 minutes
     start_time = slot_datetime
     end_time = slot_datetime + timedelta(minutes=10)
 
+    # Validate check-in time
     if not (start_time <= now <= end_time):
         flash(f"⏰ Check-in for {slot} is only allowed until {end_time.strftime('%H:%M')}.", "danger")
         return redirect(url_for('dashboard'))
 
-    existing = CheckIn.query.filter_by(user_id=current_user.id, slot=slot, date=now.date()).first()
+    # Prevent duplicate check-ins
+    existing = CheckIn.query.filter_by(
+        user_id=current_user.id,
+        slot=slot,
+        date=now.date()
+    ).first()
+
     if existing:
         flash(f"You already checked in for {slot} today.", 'warning')
         return redirect(url_for('dashboard'))
 
-    ci = CheckIn(user_id=current_user.id, slot=slot, timestamp=now, date=now.date(), comment=comment)
+    # Save record using SA time
+    ci = CheckIn(
+        user_id=current_user.id,
+        slot=slot,
+        timestamp=now,
+        date=now.date(),
+        comment=comment
+    )
     db.session.add(ci)
     db.session.commit()
+
     flash(f"✅ Check-in for {slot} recorded successfully.", 'success')
     return redirect(url_for('dashboard'))
 
