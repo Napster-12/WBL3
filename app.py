@@ -36,16 +36,20 @@ app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'uploads', 'times
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Flask-Mail configuration for cPanel email
+import os
+from flask_mail import Mail
+from flask_mail import Message
+import smtplib
+
 app.config['MAIL_SERVER'] = 'mail.tekete.co.za'
 app.config['MAIL_PORT'] = 465
 app.config['MAIL_USE_TLS'] = False
 app.config['MAIL_USE_SSL'] = True
 
-app.config['MAIL_USERNAME'] = 'check-in@tekete.co.za'   
-app.config['MAIL_PASSWORD'] = 'Publishing@2025'      
-
-app.config['MAIL_DEFAULT_SENDER'] = ('Check-In System', 'check-in@tekete.co.za')
+# Load credentials from environment variables
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = ('Check-In System', os.getenv('MAIL_USERNAME'))
 
 mail = Mail(app)
 
