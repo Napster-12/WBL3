@@ -27,7 +27,7 @@ from flask import make_response
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'fallback-secret-key')
+app.config['SECRET_KEY'] = 'replace_this_with_a_strong_secret_key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'moepi.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -36,50 +36,18 @@ app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'uploads', 'times
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-import os
-from flask import Flask
-from flask_mail import Mail, Message
-import smtplib
-
-app = Flask(__name__)
-
-# ----------------------------
-# Flask-Mail Configuration
-# ----------------------------
+# Flask-Mail configuration for cPanel email
 app.config['MAIL_SERVER'] = 'mail.tekete.co.za'
 app.config['MAIL_PORT'] = 465
 app.config['MAIL_USE_TLS'] = False
 app.config['MAIL_USE_SSL'] = True
 
-# Load credentials from environment variables
-app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
-app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
-app.config['MAIL_DEFAULT_SENDER'] = ('Check-In System', os.getenv('MAIL_USERNAME'))
+app.config['MAIL_USERNAME'] = 'check-in@tekete.co.za'   
+app.config['MAIL_PASSWORD'] = 'Publishing@2025'      
+
+app.config['MAIL_DEFAULT_SENDER'] = ('Check-In System', 'check-in@tekete.co.za')
 
 mail = Mail(app)
-
-# ----------------------------
-# Function to Send Test Email
-# ----------------------------
-def send_test_email():
-    with app.app_context():  # <- ensures proper application context
-        try:
-            msg = Message(
-                subject="Test Email",
-                recipients=["codnell.chabalala@tekete.co.za"],  # change to your email
-                body="This is a test email from Render!"
-            )
-            mail.send(msg)
-            print("✅ Test email sent successfully!")
-        except smtplib.SMTPException as e:
-            print("❌ SMTP ERROR:", e)
-
-# ----------------------------
-# Call the test function
-# ----------------------------
-if __name__ == "__main__":
-    send_test_email()
-
 
 
 # Token serializer
