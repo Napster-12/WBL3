@@ -53,6 +53,17 @@ app.config['MAIL_DEFAULT_SENDER'] = ('Check-In System', os.getenv('MAIL_USERNAME
 
 mail = Mail(app)
 
+from flask_mail import Message
+import smtplib
+
+try:
+    msg = Message("Test Email", recipients=["your-email@example.com"])
+    msg.body = "This is a test."
+    mail.send(msg)
+except smtplib.SMTPException as e:
+    print("SMTP ERROR:", e)
+
+
 
 # Token serializer
 s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
