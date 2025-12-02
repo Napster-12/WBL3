@@ -27,7 +27,7 @@ from flask import make_response
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'replace_this_with_a_strong_secret_key'
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'fallback-secret-key')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'moepi.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
