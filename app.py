@@ -37,10 +37,15 @@ app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 import os
-from flask_mail import Mail
-from flask_mail import Message
+from flask import Flask
+from flask_mail import Mail, Message
 import smtplib
 
+app = Flask(__name__)
+
+# ----------------------------
+# Flask-Mail Configuration
+# ----------------------------
 app.config['MAIL_SERVER'] = 'mail.tekete.co.za'
 app.config['MAIL_PORT'] = 465
 app.config['MAIL_USE_TLS'] = False
@@ -53,15 +58,27 @@ app.config['MAIL_DEFAULT_SENDER'] = ('Check-In System', os.getenv('MAIL_USERNAME
 
 mail = Mail(app)
 
-from flask_mail import Message
-import smtplib
+# ----------------------------
+# Function to Send Test Email
+# ----------------------------
+def send_test_email():
+    with app.app_context():  # <- ensures proper application context
+        try:
+            msg = Message(
+                subject="Test Email",
+                recipients=["codnell.chabalala@tekete.co.za"],  # change to your email
+                body="This is a test email from Render!"
+            )
+            mail.send(msg)
+            print("✅ Test email sent successfully!")
+        except smtplib.SMTPException as e:
+            print("❌ SMTP ERROR:", e)
 
-try:
-    msg = Message("Test Email", recipients=["your-email@example.com"])
-    msg.body = "This is a test."
-    mail.send(msg)
-except smtplib.SMTPException as e:
-    print("SMTP ERROR:", e)
+# ----------------------------
+# Call the test function
+# ----------------------------
+if __name__ == "__main__":
+    send_test_email()
 
 
 
